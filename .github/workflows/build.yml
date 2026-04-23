@@ -1,0 +1,22 @@
+name: Generar Mi EXE
+on: [push, workflow_dispatch] # Se activa al subir cambios o manualmente
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar herramientas
+        run: npm install -g nwjs-builder-phoenix
+
+      - name: Compilar EXE
+        run: |
+          build --tasks win-x64 --concurrent --mirror https://nwjs.io/versions .
+        
+      - name: Guardar el archivo final
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiApp-Windows
+          path: ./dist/
