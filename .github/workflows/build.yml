@@ -1,5 +1,5 @@
-name: Generar Mi EXE
-on: [push, workflow_dispatch] # Se activa al subir cambios o manualmente
+name: Compilar Mi App
+on: [push, workflow_dispatch]
 
 jobs:
   build:
@@ -8,15 +8,23 @@ jobs:
       - name: Descargar codigo
         uses: actions/checkout@v4
 
-      - name: Instalar herramientas
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar Constructor
         run: npm install -g nwjs-builder-phoenix
 
-      - name: Compilar EXE
+      - name: Ejecutar Compilacion
         run: |
-          build --tasks win-x64 --concurrent --mirror https://nwjs.io/versions .
+          mkdir build_output
+          # Esto empaqueta tu carpeta actual
+          npx nwjs-builder-phoenix --tasks win-x64 --out ./build_output .
         
-      - name: Guardar el archivo final
+      - name: Subir Resultado Final
         uses: actions/upload-artifact@v4
         with:
-          name: MiApp-Windows
-          path: ./dist/
+          name: MiApp-Ejecutable
+          path: ./build_output/
+          if-no-files-found: error
