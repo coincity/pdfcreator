@@ -1,0 +1,11 @@
+{
+  "name": "mi_aplicacion",
+  "main": "index.html",
+  "window": {
+    "title": "Mi App Nativa",
+    "toolbar": false,
+    "frame": true,
+    "width": 800,
+    "height": 600
+  }
+}

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de PDF A4 - by Juanis - v 1.4</title>
+    <script src="libs/tailwindcss.js"></script>
+    <script src="libs/jspdf.umd.min.js"></script>
+<!--    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+-->    <style>
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.2s ease-in-out;
+        }
+        .drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: scale(1.01);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        .draggable-item {
+            cursor: grab;
+        }
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+        .dragging {
+            opacity: 0.5;
+            background-color: #f1f5f9;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center p-4 text-slate-900">
+
+    <div class="max-w-xl w-full bg-white rounded-3xl shadow-2xl p-6 md:p-8 mt-4">
+        <header class="text-center mb-6">
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Generador de PDF</h1>
+            <p class="text-slate-500 text-sm">Convierte tus fotos a PDF A4 fácilmente</p>
+        </header>
+
+        <!-- Configuración -->
+        <div class="bg-slate-50 rounded-2xl p-5 mb-6 space-y-4 border border-slate-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Calidad -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-bold text-slate-700">Calidad:</label>
+                        <span id="qualityValue" class="text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg text-xs">80%</span>
+                    </div>
+                    <input type="range" id="qualitySlider" min="10" max="100" value="80" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- Margen -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-bold text-slate-700">Margen:</label>
+                        <span id="marginValue" class="text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg text-xs">5 mm</span>
+                    </div>
+                    <input type="range" id="marginSlider" min="0" max="3" value="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+            <!-- Orden -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                <label for="sortCheck" class="text-sm font-bold text-slate-700 cursor-pointer">Ordenar alfabéticamente</label>
+                <input type="checkbox" id="sortCheck" checked class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
+            </div>
+        </div>
+
+        <!-- Zona de Carga Mejorada para Móvil -->
+        <div id="dropZone" class="drop-zone rounded-2xl p-10 text-center cursor-pointer mb-6 bg-white hover:bg-slate-50">
+            <div class="flex flex-col items-center pointer-events-none">
+                <div class="bg-blue-100 p-4 rounded-full mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                <p class="text-lg font-bold text-slate-800">Toca para subir fotos</p>
+                <p class="text-xs text-slate-400 mt-1">Puedes seleccionar múltiples archivos a la vez</p>
+            </div>
+            <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+        </div>
+
+        <!-- Lista de Archivos -->
+        <div id="fileListContainer" class="hidden mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest text-center md:text-left">Archivos en cola (arrastra para reordenar)</h2>
+                <button id="clearBtn" class="text-xs text-red-500 font-bold hover:underline">Limpiar todo</button>
+            </div>
+            <ul id="fileList" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <!-- Dinámico -->
+            </ul>
+        </div>
+
+        <!-- Botón Generar -->
+        <button id="generateBtn" disabled class="w-full py-5 bg-slate-200 text-slate-400 font-black rounded-2xl transition-all uppercase tracking-tighter text-lg shadow-sm">
+            Generar PDF
+        </button>
+
+        <!-- Progreso -->
+        <div id="progressArea" class="hidden mt-6 space-y-2">
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                <div id="progressBar" class="bg-blue-600 h-full w-0 transition-all duration-300"></div>
+            </div>
+            <p id="progressText" class="text-[10px] text-center text-slate-400 font-bold uppercase"></p>
+        </div>
+
+        <div id="statusMessage" class="hidden mt-4 p-3 rounded-xl text-center text-sm font-medium"></div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const generateBtn = document.getElementById('generateBtn');
+        const fileList = document.getElementById('fileList');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const qualitySlider = document.getElementById('qualitySlider');
+        const qualityValue = document.getElementById('qualityValue');
+        const marginSlider = document.getElementById('marginSlider');
+        const marginValue = document.getElementById('marginValue');
+        const sortCheck = document.getElementById('sortCheck');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressArea = document.getElementById('progressArea');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const clearBtn = document.getElementById('clearBtn');
+
+        let rawFiles = [];
+        let draggedIndex = null;
+        const marginOptions = [0, 5, 15, 25];
+
+        // Actualizar visualización del slider de calidad
+        qualitySlider.addEventListener('input', (e) => {
+            qualityValue.textContent = `${e.target.value}%`;
+        });
+
+        // Actualizar visualización del slider de margen
+        marginSlider.addEventListener('input', (e) => {
+            const val = marginOptions[e.target.value];
+            marginValue.textContent = val === 0 ? "Sin margen" : `${val} mm`;
+        });
+
+        // Selección de archivos
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        function handleFiles(files) {
+            const incoming = Array.from(files).filter(f => f.type.startsWith('image/'));
+            if (incoming.length === 0) return;
+            
+            rawFiles = [...rawFiles, ...incoming];
+            processList();
+        }
+
+        function processList() {
+            if (sortCheck.checked) {
+                rawFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'}));
+            }
+            updateUI(rawFiles);
+        }
+
+        sortCheck.addEventListener('change', processList);
+        clearBtn.addEventListener('click', () => {
+            rawFiles = [];
+            processList();
+            hideStatus();
+        });
+
+        function updateUI(files) {
+            fileList.innerHTML = '';
+            if (files.length > 0) {
+                fileListContainer.classList.remove('hidden');
+                generateBtn.disabled = false;
+                generateBtn.className = "w-full py-5 bg-blue-600 text-white font-black rounded-2xl transition-all uppercase tracking-tighter text-lg shadow-xl active:scale-95";
+                
+                files.forEach((file, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm draggable-item';
+                    li.setAttribute('draggable', true);
+                    li.dataset.index = index;
+
+                    // Eventos de Arrastre
+                    li.addEventListener('dragstart', (e) => {
+                        if (sortCheck.checked) {
+                            e.preventDefault();
+                            return;
+                        }
+                        draggedIndex = index;
+                        li.classList.add('dragging');
+                    });
+
+                    li.addEventListener('dragend', () => {
+                        li.classList.remove('dragging');
+                    });
+
+                    li.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                    });
+
+                    li.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        if (draggedIndex === null || draggedIndex === index) return;
+                        
+                        // Mover elemento en el array
+                        const movedItem = rawFiles.splice(draggedIndex, 1)[0];
+                        rawFiles.splice(index, 0, movedItem);
+                        draggedIndex = null;
+                        processList();
+                    });
+
+                    li.innerHTML = `
+                        <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-bold text-xs mr-3 flex-shrink-0">
+                            ${index + 1}
+                        </div>
+                        <div class="flex-grow min-w-0">
+                            <p class="text-slate-700 text-xs font-bold truncate">${file.name}</p>
+                            <p class="text-[9px] text-slate-300 font-mono uppercase">${(file.size / 1024).toFixed(0)}kb</p>
+                        </div>
+                        <button class="delete-btn p-2 text-slate-300 hover:text-red-500 transition-colors" data-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    `;
+                    
+                    // Botón eliminar
+                    li.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        rawFiles.splice(index, 1);
+                        processList();
+                    });
+
+                    fileList.appendChild(li);
+                });
+            } else {
+                fileListContainer.classList.add('hidden');
+                generateBtn.disabled = true;
+                generateBtn.className = "w-full py-5 bg-slate-200 text-slate-400 font-black rounded-2xl transition-all uppercase tracking-tighter text-lg shadow-sm";
+            }
+        }
+
+        function showStatus(msg, isError = false) {
+            statusMessage.textContent = msg;
+            statusMessage.classList.remove('hidden', 'bg-red-50', 'text-red-600', 'bg-green-50', 'text-green-600');
+            statusMessage.classList.add(isError ? 'bg-red-50' : 'bg-green-50');
+            statusMessage.classList.add(isError ? 'text-red-600' : 'text-green-600');
+        }
+
+        function hideStatus() {
+            statusMessage.classList.add('hidden');
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            const filesToProcess = [...rawFiles];
+            if (filesToProcess.length === 0) return;
+
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Creando PDF...';
+            progressArea.classList.remove('hidden');
+            hideStatus();
+
+            try {
+                const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                const quality = parseInt(qualitySlider.value) / 100;
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = marginOptions[parseInt(marginSlider.value)];
+
+                for (let i = 0; i < filesToProcess.length; i++) {
+                    const file = filesToProcess[i];
+                    const percent = Math.round((i / filesToProcess.length) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    progressText.textContent = `Página ${i + 1} de ${filesToProcess.length}`;
+
+                    const imgData = await processImage(file, quality);
+                    
+                    if (i > 0) pdf.addPage();
+                    
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const ratio = imgProps.width / imgProps.height;
+                    
+                    let finalW = pageWidth - (margin * 2);
+                    let finalH = finalW / ratio;
+                    
+                    if (finalH > (pageHeight - (margin * 2))) {
+                        finalH = pageHeight - (margin * 2);
+                        finalW = finalH * ratio;
+                    }
+
+                    const x = (pageWidth - finalW) / 2;
+                    const y = (pageHeight - finalH) / 2;
+
+                    pdf.addImage(imgData, 'JPEG', x, y, finalW, finalH, undefined, 'FAST');
+                }
+
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Finalizando...';
+                
+                const fileName = `PDF_${new Date().toISOString().slice(0,10)}_${Math.floor(Math.random()*1000)}.pdf`;
+                pdf.save(fileName);
+                
+                showStatus('¡PDF descargado con éxito!');
+            } catch (err) {
+                console.error(err);
+                showStatus('Error al generar el PDF.', true);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generar PDF';
+                setTimeout(() => {
+                    progressArea.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                }, 3000);
+            }
+        });
+
+        function processImage(file, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const maxW = 1600; 
+                        const maxH = 1600;
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxW || h > maxH) {
+                            if (w > h) { h = (maxW / w) * h; w = maxW; }
+                            else { w = (maxH / h) * w; h = maxH; }
+                        }
+                        canvas.width = w; canvas.height = h;
+                        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        img.src = ""; canvas.width = 0; canvas.height = 0;
+                        resolve(dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>
